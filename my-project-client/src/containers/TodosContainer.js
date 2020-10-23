@@ -1,105 +1,77 @@
-import React, { Component } from "react"
-import axios from 'axios'
-import update from 'immutability-helper'
+import React from 'react'
+import TodoInput from '../components/TodoInput'
+import Todos from '..components/Todos'
+import EditTodoForm from "../components/EditTodoForm"
+import {getTodos, deleteTodo} from '../actions/todoActions'
+import {connect} from 'react-redux'
+import {Container, Row, Col} from 'react-bootstrap'
 
-class TodosContainer extends Component {
-    constructor() {
-        super()
-        this.state = {
-            todos: [],
-            inputValue: ''
+class TodosContainer extends React.Component {
+    constructor(props){
+        super(props)
+        this.state={
+            title: '',
+            content: '',
+            todolistId: props.location.state.todolistId,
+            isEditing: false,
+            editingTodoId: ''
         }
+        this.toggleEdit = this.toggleEdit.bind(this)
+    }
+
+    toggleEdit(todo){
+        this.setState({
+            isEditing: !this.state.isEditing,
+            editingTodoId: todo.id,
+            title: todo.title,
+            content: todo.content
+        })
     }
 
     componentDidMount(){
-        axios.get('/api/v1/todos')
-            .then(response => {
-                this.setState({todos: response.data})
-            })
-            .catch((error) => console.log(error));
+        const id = JSON.stringify(this.state.todolistId)
+        this.props.getTodos(id)
     }
 
-    createTodo = (e) => {
-        if(e.key === 'Enter' && !(e.target.value === '')){
-            axios.post('/api/v1/todos', {todo: {title: e.target.value}})
-                .then(response => {
-                    const todos = update(this.state.todos, {
-                        $splice: [[0, 0, response.data]]
-                    })
-                    this.setState({
-                        todos,
-                        inputValue: ''
-                    })
-                })
-                .catch(error => console.log(error))
-        }
-    }
-
-    handleChange =(e) => {
-        this.setState({inputValue: e.target.value})
-    }
-
-    updateTodo = (e, id) => {
-        axios.put(`/api/v1/todos/${id}`, {todo: {done: e.target.checked}})
-            .then(response => {
-                const todoIndex = this.state.todos.findIndex(x => x.id === response.data.id)
-                const todos = update(this.state.todos, {
-                    [todoIndex]: {$set: response.data}
-                })
-                this.setState({
-                    todos
-                })
-            })
-            .catch(error => console.log(error))
-    }
-
-    deleteTodo = (id) => {
-        axios.delete(`/api/v1/todos/${id}`)
-            .then(response => {
-                const todoIndex = this.state.todos.findIndex(x => x.id === id)
-                const todos = update(this.state.todos, {
-                    $splice: [[todoIndex, 1]]
-                })
-                this.setState({
-                    todos
-                })
-            })
-            .catch(error => console.log(error))
-    }
-
-    render() {
-        return (
+    render(){
+        return(
             <div>
-                <div className="inputContainer">
-                    <input
-                        className="taskInput"
-                        type="text"
-                        placeholder="Add a task" maxLength='50'
-                        onKeyPress={this.createTodo}
-                        value={this.state.inputValue} onChange={this.handleChange}
-                />
+                <header>
+                    <div id='todolistHeader'>
+                        {this.state.name}
+                    </div>
+                </header>
+                <Container lg='12' className='todosPage'>
+                    <Row>
+                        <Col 
+                        lg='4' 
+                        className='todosWrapper'>
+                            <Todos 
+                            todosCollection={this.props.todosCollection}
+                            deleteTodo={this.props.deleteTodo}
+                            toggleEdit={this.toggleEdit}
+                        /></Col>
+                        {this.state.isEditing ?
+                        <Col 
+                        md='8'
+                        className='todosInput'>
+                            EditTodoForm todo={this.state} toggleEdit={this.toggleEdit}/></Col>
+                        :
+                        <Col
+                        md='8'
+                        className='todosInput'><TodoInput todolistId={this.state.todolistId} /></Col>
+                        }
+                    </Row>
+                </Container>
             </div>
-            <div className="listWrapper">
-                <ul className="taskList">
-                    {this.state.todos.map((todo) => {
-                        return (
-                            <li className="task" todo={todo} key={todo.id}>
-                                <input className="taskCheckbox" type="checkbox" 
-                                    checked={todo.done}
-                                    onChange={(e) => this.updateTodo(e, todo.id)} />
-                                <label className="taskLabel">{todo.title}</label>
-                                <span className="deleteTaskBtn"
-                                    onClick={(e) => this.deleteTodo(todo.id)}>
-                                    X
-                                </span>
-                                </li>
-                            )
-                        })}
-                </ul>
-            </div>
-        </div>
         )
     }
 }
 
-export default TodosContainer
+const mapStateToProps = state => {
+    return {
+        todosCollection: state.todos
+    }
+}
+
+export default connect(mapStateToProps, {getTodos, deleteTodo})(TodosContainer)
